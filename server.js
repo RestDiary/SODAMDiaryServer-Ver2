@@ -18,16 +18,16 @@ app.use(cors());
 
 // aws 연동
 const s3 = new aws.S3({
-  region: '---',
-  accessKeyId: "---",
-  secretAccessKey: "---"
+  region: 'ap-northeast-2',
+  accessKeyId: "AKIAQODLHYO5MQ5LJPH4",
+  secretAccessKey: "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"
 });
 
 // sql 연동
 const db = mysql.createConnection({
   user: 'people',
-  host: '---',
-  password: '---',
+  host: 'awseb-e-vj5pexrasv-stack-awsebrdsdatabase-lprvp3o1hbyu.c2k4cktruffj.ap-northeast-2.rds.amazonaws.com',
+  password: 'ks29850850',
   database: 'people'
 });
 
@@ -73,6 +73,8 @@ app.post('/upload', upload.single('image'), (req, res) => {
 })
 
 
+
+
 //이메일 인증번호
 app.post('/checkNum', (req, res) => {
   console.log("오긴 옴")
@@ -98,10 +100,10 @@ app.post('/checkNum', (req, res) => {
           "Content-Type": "application/json",
         },
         data: {
-          service_id: "---",
-          template_id: "---",
-          user_id: "---",
-          accessToken: "---",
+          service_id: "service_8zokko5",
+          template_id: "template_o4gal9l",
+          user_id: "lpKbV5s1trirOPFrW",
+          accessToken: "l9ZuLyOswe7V7_eDpNPuu",
           template_params: {
             email: email,
             checkNum: number,
@@ -274,6 +276,28 @@ app.post('/overlap', function(req, res) {
 });
 
 
+
+//플라스크 로컬 통신(값 전달 후 감정 값과 대답 가져오기)
+app.post('/flask', (req, res) => {
+  console.log("내 이름은 이재문 천재죠. 나지너ㅋㅋ");
+  axios({
+    method: "POST",
+    url: "http://192.168.0.18:5000/getSentiment",
+    data: {
+      input: "나 너무 살쪘어"
+    },
+  })
+  .then((result) => {
+    console.log(result.data.sentence);
+    console.log(result.data.emotion);
+    console.log(result.data.index);
+  })
+  .catch((error) => {
+    console.error(error);
+    res.status(500).send(error);
+  });
+});
+
 //글 작성
 app.post('/write', async function(req, res) {
   console.log("글 작성 하러 옴");
@@ -284,181 +308,44 @@ app.post('/write', async function(req, res) {
   let month = req.query.month;
   let day = req.query.day;
   let img = req.query.img;
-  let voice = req.query.voice;
-  let keyword = req.query.keyword;
-  let keyword1 = ""
-  let keyword2
-  let keyword3
-  let summary = "" // 내용 요약
-  let arr = [];
-  let summary_check = true
 
-  
-  if(keyword.length === 1) {
-    keyword1 = keyword
-  }else if(keyword.length === 2) {
-    keyword1 = keyword[0]
-    keyword2 = keyword[1]
-  }else if(keyword.length === 3) {
-    keyword1 = keyword[0]
-    keyword2 = keyword[1]
-    keyword3 = keyword[2]
-  }
-  let emotion;
-  let positive;
-  let negative;
-  let neutral;
-  let score;
-  let big;   
+  let cb_sentence = req.query.sys_sentence;
+  let cb_emotion = req.query.cb_emotion;
+
+  let diarykey;
 
 
-  // 일기의 어절이 5개 미만이라면 요약을 하지 않는다.
-  arr = content.split(" ")
-  if(arr.length < 5) {
-    summary_check = false
-    summary = content
-  }
+  // setTimeout(() => {
+    let values = [id, title, content, year, month, day, img]
+    const sql = "INSERT INTO diary(id, title, content, year, month, day, img) VALUES(?, ?, ?, ?, ?, ?, ?)"
 
+    const sql_search = "SELECT MAX(diarykey) FROM diary WHERE id = ?"
 
-  //텍스트 감정분석 api
-  await axios({
-    method: "POST",
-    url: "https://naveropenapi.apigw.ntruss.com/sentiment-analysis/v1/analyze",
-    headers: {
-      "X-NCP-APIGW-API-KEY-ID": "---",
-      "X-NCP-APIGW-API-KEY": "---",
-      "Content-Type": "application/json",
-    },
-    data: {
-      content: content,
-    },
-  })
-  .then(async(r) => {
-    console.log("nice!!",r.data.document);
-    emotion = r.data.document.sentiment;
-    // console.log("감정: ",r.data.document);
-    positive = (r.data.document.confidence.positive).toFixed(1);
-    negative = (r.data.document.confidence.negative).toFixed(1);
-    neutral = (r.data.document.confidence.neutral).toFixed(1);
-    big = Math.max(positive, negative, neutral);
-    // res.send(r.data.document);
-  })
-  .catch(function (err) {  
-    console.log("hey,,,",err);
-    if(res.status(400)) { // 에러코드 400이라면
-      res.status(400).json({message: err.message})
-    } else if(res.status(500)){  // 에러코드 500이라면
-      res.status(500).json({message: err.message})
-    }
-  });
-  
-  //일기요약
-  if(summary_check) { //일기 문장의 어절이 5개 이상일 때만 실행
-  await axios({
-    method: "POST",
-    url: "https://naveropenapi.apigw.ntruss.com/text-summary/v1/summarize",
-    headers: {
-      "X-NCP-APIGW-API-KEY-ID": "---",
-      "X-NCP-APIGW-API-KEY": "---",
-      "Content-Type": "application/json",
-    },
-    data: {
-      document: {
-        "title": title,
-        "content": content
-      },
-    option: {
-      "language": "ko",
-      "model": "general",
-      "tone": 0,
-      "summaryCount": 3
-    },
-    }
-  })
-  .then(async(result) => {
-    console.log(result)
-    summary = result.data.summary
-  })
-  .catch(function (err) {  
-    console.log("ohNo...",err);
-    if(res.status(400)) { // 에러코드 400이라면
-      res.status(400).json({message: err.message})
-    } else if(res.status(500)){  // 에러코드 500이라면
-      res.status(500).json({message: err.message})
-    }
-  });
-}
-
-
-  let sql3 = "select score from userInfo where id =?";
-  db.query(sql3, id, (err, result) => {
-    let tempScore = result[0].score;
-
-    if (err) console.log(err);
-    else {
-      if (emotion === "positive") {
-        emotion2 = "긍정";
-        if(tempScore + big/10 >= 100 ) {
-          score = 100;
-        }else{
-          score = tempScore + big / 10;
-        }
-        console.log("positive", score);
-      } else if (emotion === "negative") {
-        emotion2 = "부정";
-        if(tempScore - big/10 <= 0 ) {
-          score = 0;
-        }else {
-          score = tempScore - big / 10;
-        }
-        console.log("negative", score);
-      } else if (emotion === "neutral") {
-        console.log("neutral 옴");
-        emotion2 = "중립";
-        if (big >= 99) {
-          //neutral이 100이면 짧은 글이라서 감정 분석이 제대로 안 된 글임
-          score = tempScore;
-        } else if (big >= 50) {
-          if(tempScore + big/15 >= 100) {
-            score = 100;
-          }else{
-            score = tempScore + big / 15;
-          }
-          console.log("neutral", score);
-        } else if (big < 50) {
-          if(tempScore - big/15 <= 0) {
-            score = 0;
-          }else {
-            score = tempScore - big / 15;
-          }
-          console.log("neutral", score);
-        }
-      }
-    }
-  });
-
-  setTimeout(() => {
-    let values = [id, title, content, year, month, day, img, voice, keyword1, keyword2, keyword3, emotion, positive, negative, neutral, summary]
-    const sql = "INSERT INTO diary(id, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    const sql2 = "Update userInfo Set score = ? Where id = ?";
-    let values2 = [score, id];
-    let sendMsg = [emotion, big]
-
+    let values2 = [diarykey, id, cb_sentence, cb_emotion]
+    const sql2 = "INSERT INTO chatBot(diarykey, id, cb_sentence, cb_emotion)"
 
     db.query(sql, values, (err, result) => {
       if (err) {
         console.log(err);
       } else {
-        db.query(sql2, values2, (err, result) => {
-          if (err) {
-            console.log(err);
-          } else {
-            res.send(sendMsg);
+        db.query(sql_search, id, (err, result) => {
+          if(err) {
+            console.log("2번째 ", err);
+          }else {
+            diarykey = result;
+            db.query(sql2, values2, (err, result) => {
+              if(err) {
+                console.log("3번째 ", err);
+              }else {
+                res.send(result);
+              }
+            })
           }
-        });
+
+        })
       }
     });
-  }, 500)
+  // }, 500)
 
 });
 
@@ -475,7 +362,7 @@ app.post('/myDiary',(req, res) => {
   let values = [id, year];
   console.log(values);
   
-  const sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral, summary From diary Where id = ? AND year =? Order By day DESC";
+  const sql= "Select diarykey, title, content, year, month, day, img From diary Where id = ? AND year =? Order By day DESC";
 
   db.query(sql, values,
     (err, result) => {
@@ -488,28 +375,28 @@ app.post('/myDiary',(req, res) => {
     });
 });
 
-//사용자 일기 내용 반환 (공유 일기 리스트)
-app.post('/myShare',(req, res) => {
-  console.log("공유하러 옴");
-  let id = req.query.id;
-  let year = req.query.year;
+// //사용자 일기 내용 반환 (공유 일기 리스트)
+// app.post('/myShare',(req, res) => {
+//   console.log("공유하러 옴");
+//   let id = req.query.id;
+//   let year = req.query.year;
 
-  let values = [id, year, "true"];
-  console.log(values);
-  const sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral, summary From diary Where id = ? AND year = ? AND shareCheck = ?"
+//   let values = [id, year, "true"];
+//   console.log(values);
+//   const sql= "Select diarykey, title, content, year, month, day, img From diary Where id = ? AND year = ? AND shareCheck = ?"
   
 
-  db.query(sql, values,
-    (err, result) => {
-     console.log(result)
-        if (err) {
-            console.log(err);
-        }else {
-        res.send(result);
+//   db.query(sql, values,
+//     (err, result) => {
+//      console.log(result)
+//         if (err) {
+//             console.log(err);
+//         }else {
+//         res.send(result);
         
-        }
-    });
-});
+//         }
+//     });
+// });
 
 
 //사용자 일기 수정
@@ -522,112 +409,13 @@ app.post('/diaryModify', async function(req, res) {
   let month = req.query.month;
   let day = req.query.day;
   let img = req.query.img;
-  let voice = req.query.voice;
-  let keyword = req.query.keyword;
-  let keyword1 = ""
-  let keyword2
-  let keyword3
-  let summary = "" // 내용 요약
-  let arr = [];
-  let summary_check = true
-
-
-  if(keyword.length === 1) {
-    keyword1 = keyword
-  }else if(keyword.length === 2) {
-    keyword1 = keyword[0]
-    keyword2 = keyword[1]
-  }else if(keyword.length === 3) {
-    keyword1 = keyword[0]
-    keyword2 = keyword[1]
-    keyword3 = keyword[2]
-  }
-
-  let emotion;
-  let positive;
-  let negative;
-  let neutral;
 
 
 
-    // 일기의 어절이 5개 미만이라면 요약을 하지 않는다.
-    arr = content.split(" ")
-    if(arr.length < 5) {
-      summary_check = false
-      summary = content
-    }
 
-  //텍스트 감정분석 api
-  await axios({
-    method: "POST",
-    url: "https://naveropenapi.apigw.ntruss.com/sentiment-analysis/v1/analyze",
-    headers: {
-      "X-NCP-APIGW-API-KEY-ID": "---",
-      "X-NCP-APIGW-API-KEY": "---",
-      "Content-Type": "application/json",
-    },
-    data: {
-      content: content,
-    },
-  })
-  .then((r) => {
-    console.log("수정 nice!!",r.data.document);
-    emotion = r.data.document.sentiment;
-    console.log("감정: ",r.data.document);
-    positive = (r.data.document.confidence.positive).toFixed(1);
-    negative = (r.data.document.confidence.negative).toFixed(1);
-    neutral = (r.data.document.confidence.neutral).toFixed(1);
-  })
-  .catch(function (err) {  
-    console.log("hey,,,?",err);
-
-    if(res.status(400)) { // 에러코드 400이라면
-      res.status(400).json({message: err.message})
-    } else if(res.status(500)){  // 에러코드 500이라면
-      res.status(500).json({message: err.message})
-    }
-  });
-
-   //일기요약
-   if(summary_check) { //일기 문장의 어절이 5개 이상일 때만 실행
-    await axios({
-      method: "POST",
-      url: "https://naveropenapi.apigw.ntruss.com/text-summary/v1/summarize",
-      headers: {
-        "X-NCP-APIGW-API-KEY-ID": "---",
-        "X-NCP-APIGW-API-KEY": "---",
-        "Content-Type": "application/json",
-      },
-      data: {
-        document: {
-          "title": title,
-          "content": content
-        },
-      option: {
-        "language": "ko",
-        "model": "general",
-        "tone": 0,
-        "summaryCount": 3
-      },
-      }
-    })
-    .then(async(result) => {
-      console.log(result)
-      summary = result.data.summary
-    })
-    .catch(function (err) {  
-      console.log("ohNo...",err);
-      if(res.status(400)) { // 에러코드 400이라면
-        res.status(400).json({message: err.message})
-      } else if(res.status(500)){  // 에러코드 500이라면
-        res.status(500).json({message: err.message})
-      }
-    });
-  }
-
-  let values = [title, content, year, month, day, img, voice, keyword1, keyword2, keyword3, emotion, positive, negative, neutral, summary, diarykey];
+  let values = [title, content, year, month, day, img, diarykey];
   console.log(values);
-  const sql = "Update diary Set title = ?, content = ?, year = ?, month = ? , day = ?, img = ?, voice = ?, keyword = ?, keyword2 = ?, keyword3 = ?,  emotion = ?, positive = ?, negative = ?, neutral = ?, summary = ? Where diarykey = ?"
+  const sql = "Update diary Set title = ?, content = ?, year = ?, month = ? , day = ?, img = ? Where diarykey = ?"
 
   db.query(sql, values,
     (err, result) => {
@@ -678,7 +466,7 @@ app.post('/diaryInfo', (req, res) => {
   let diarykey = req.query.diarykey;
 
   let values = [diarykey];
-  let sql = "Select title, content, year, month, day, img, voice, keyword, emotion From diary Where diarykey =?"
+  let sql = "Select title, content, year, month, day, img From diary Where diarykey =?"
   db.query(sql, values, (err, result) => {
     if(err) {
       console.log(err);
@@ -707,77 +495,77 @@ app.post('/album', (req, res) => {
 
 });
 
-//일기 공유 버튼 선택 시
-app.post('/sharePush', (req, res) => {
-  let diarykey = req.query.diarykey;
+// //일기 공유 버튼 선택 시
+// app.post('/sharePush', (req, res) => {
+//   let diarykey = req.query.diarykey;
   
-  let value = [diarykey];
-  let values = ["false", diarykey];
-  let sql = "INSERT INTO shareCard SELECT * FROM diary WHERE diary.diarykey = ?"
-  let sql2 = "Update diary Set shareCheck = ? Where diarykey = ?"
-  console.log(diarykey);
-  //공유 일기 테이블에 일기 복사
-  db.query(sql, value, (err, result) => {
-    if(err) {
-      console.log(err);
-    }else{
-      //일기가 복사 됐다면 기존 일기 테이블에서 shareCheck값 false로 변경
-      db.query(sql2, values, (err, result) => {
-        if(err) {
-          console.log(err);
-        }else {
-          res.send(result);
-        }
-      })
-    };
-  })
+//   let value = [diarykey];
+//   let values = ["false", diarykey];
+//   let sql = "INSERT INTO shareCard SELECT * FROM diary WHERE diary.diarykey = ?"
+//   let sql2 = "Update diary Set shareCheck = ? Where diarykey = ?"
+//   console.log(diarykey);
+//   //공유 일기 테이블에 일기 복사
+//   db.query(sql, value, (err, result) => {
+//     if(err) {
+//       console.log(err);
+//     }else{
+//       //일기가 복사 됐다면 기존 일기 테이블에서 shareCheck값 false로 변경
+//       db.query(sql2, values, (err, result) => {
+//         if(err) {
+//           console.log(err);
+//         }else {
+//           res.send(result);
+//         }
+//       })
+//     };
+//   })
 
-});
+// });
 
-//일기 공유 시 해당 감정에 해당하는 일기만 반환 (리스트)
-app.post('/shareList', (req, res) => {
-  let diarykey = req.query.diarykey;
+// //일기 공유 시 해당 감정에 해당하는 일기만 반환 (리스트)
+// app.post('/shareList', (req, res) => {
+//   let diarykey = req.query.diarykey;
   
-  let sql = "Select positive, negative, neutral From diary Where diarykey = ?";
-  let values = [diarykey];
-  console.log(values);
+//   let sql = "Select positive, negative, neutral From diary Where diarykey = ?";
+//   let values = [diarykey];
+//   console.log(values);
   
-  db.query(sql, values, (err, result) => {
-    if(err) {
-      console.log(err);
-    }else {
-      res.send(result);
-    }
-  });
+//   db.query(sql, values, (err, result) => {
+//     if(err) {
+//       console.log(err);
+//     }else {
+//       res.send(result);
+//     }
+//   });
   
-})
+// })
 
-//일기 공유 시 감정 반환
-app.post('/shareList2', (req, res) => {
-  let id = req.query.id;
-  let emotion = req.query.emotion;
-  let emotionValue = req.query.emotionValue;
-  let sql;
+// //일기 공유 시 감정 반환
+// app.post('/shareList2', (req, res) => {
+//   let id = req.query.id;
+//   let emotion = req.query.emotion;
+//   let emotionValue = req.query.emotionValue;
+//   let sql;
 
-  if(emotion === 'neutral') {
-    sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral From shareCard Where id != ? AND neutral Between ?-20 AND ?+20"
-  }else if(emotion === 'positive') {
-    sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral From shareCard Where id != ? AND positive Between ?-20 AND ?+20"
-  }else if(emotion === 'negative') {
-    sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral From shareCard Where id!=? AND negative Between?-20 AND ?+20"
-  }
+//   if(emotion === 'neutral') {
+//     sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral From shareCard Where id != ? AND neutral Between ?-20 AND ?+20"
+//   }else if(emotion === 'positive') {
+//     sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral From shareCard Where id != ? AND positive Between ?-20 AND ?+20"
+//   }else if(emotion === 'negative') {
+//     sql= "Select diarykey, title, content, year, month, day, img, voice, keyword, keyword2, keyword3, emotion, positive, negative, neutral From shareCard Where id!=? AND negative Between?-20 AND ?+20"
+//   }
 
-  let values = [id, emotionValue, emotionValue];
+//   let values = [id, emotionValue, emotionValue];
 
-  db.query(sql, values, (err, result) => {
-    if(err) {
-      console.log(err);
-    }else {
-      res.send(result);
-    }
-  })
+//   db.query(sql, values, (err, result) => {
+//     if(err) {
+//       console.log(err);
+//     }else {
+//       res.send(result);
+//     }
+//   })
   
-});
+// });
 
 //일기 초기화
 app.post('/deleteAll', (req, res) => {
@@ -819,62 +607,62 @@ app.post('/withdrawal', (req, res) => {
   });
 });
 
-//계정 점수 반환
-app.post('/userScore', (req, res) => {
-  console.log("계정 점수");
-  let id = req.query.id;
-  let values = [id];
+// //계정 점수 반환
+// app.post('/userScore', (req, res) => {
+//   console.log("계정 점수");
+//   let id = req.query.id;
+//   let values = [id];
 
-  let sql = "select score from userInfo where id =?";
-  db.query(sql, values, (err, result) => {
-    if(err) {
-      console.log(err);
-    }else {
-      console.log(result);
+//   let sql = "select score from userInfo where id =?";
+//   db.query(sql, values, (err, result) => {
+//     if(err) {
+//       console.log(err);
+//     }else {
+//       console.log(result);
 
-      res.send(result);
-    }
-  })
-});
+//       res.send(result);
+//     }
+//   })
+// });
 
-//감정 횟수 반환
-app.post('/count', (req, res) => {
-  let id = req.query.id;
-  let count = [];
+// //감정 횟수 반환
+// app.post('/count', (req, res) => {
+//   let id = req.query.id;
+//   let count = [];
   
-  let values = [id];
+//   let values = [id];
   
-  let sql = "select Count(emotion) as count From diary where id =? AND emotion = positive";
-  let sql2 = "select Count(emotion) as count From diary where id =? AND emotion = negative";
-  let sql3 = "select count(emotion) as count from diary where id =? AND emotion = neutral";
+//   let sql = "select Count(emotion) as count From diary where id =? AND emotion = positive";
+//   let sql2 = "select Count(emotion) as count From diary where id =? AND emotion = negative";
+//   let sql3 = "select count(emotion) as count from diary where id =? AND emotion = neutral";
   
-  db.query(sql, values, (err, result) => {
-    if(err) {
-      console.log(err);
-    }else {
-      count[0] = result;
-      console.log("0",result);
-      db.query(sql2, values, (err, result) => {
-        if(err) {
-          console.log(err);
-        }else {
-          count[1] = result;
-          console.log("1",result);
-          db.query(sql3, values, (err, result) => {
-            if(err) {
-              console.log(err);
-            }else {
-              count[2] = result;
-              console.log("2",result);
-              res.send(count);
-            }
-          });
-        }
-      });
-    }
-  });
+//   db.query(sql, values, (err, result) => {
+//     if(err) {
+//       console.log(err);
+//     }else {
+//       count[0] = result;
+//       console.log("0",result);
+//       db.query(sql2, values, (err, result) => {
+//         if(err) {
+//           console.log(err);
+//         }else {
+//           count[1] = result;
+//           console.log("1",result);
+//           db.query(sql3, values, (err, result) => {
+//             if(err) {
+//               console.log(err);
+//             }else {
+//               count[2] = result;
+//               console.log("2",result);
+//               res.send(count);
+//             }
+//           });
+//         }
+//       });
+//     }
+//   });
 
-});
+// });
 
 //키워드 막대차트
 app.post('/chart/bar', (req, res) => {
