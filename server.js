@@ -18,17 +18,17 @@ app.use(cors());
 
 // aws 연동
 const s3 = new aws.S3({
-  region: 'ap-northeast-2',
-  accessKeyId: "AKIAQODLHYO5MQ5LJPH4",
-  secretAccessKey: "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"
+  region: '---',
+  accessKeyId: "---",
+  secretAccessKey: "---"
 });
 
 // sql 연동
 const db = mysql.createConnection({
   user: 'people',
-  host: 'awseb-e-vj5pexrasv-stack-awsebrdsdatabase-lprvp3o1hbyu.c2k4cktruffj.ap-northeast-2.rds.amazonaws.com',
-  password: 'ks29850850',
-  database: 'people'
+  host: '---',
+  password: '---',
+  database: '---'
 });
 
 // db가잘 연동 되었는지 확인
@@ -100,10 +100,10 @@ app.post('/checkNum', (req, res) => {
           "Content-Type": "application/json",
         },
         data: {
-          service_id: "service_8zokko5",
-          template_id: "template_o4gal9l",
-          user_id: "lpKbV5s1trirOPFrW",
-          accessToken: "l9ZuLyOswe7V7_eDpNPuu",
+          service_id: "---",
+          template_id: "---",
+          user_id: "---",
+          accessToken: "---",
           template_params: {
             email: email,
             checkNum: number,
