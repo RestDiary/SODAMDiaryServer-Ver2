@@ -17,8 +17,8 @@ application = Flask(__name__)
 
 
 
-# eb_data = pd.read_csv('./data/sentiment_human_test2.csv', encoding='utf-8')
-eb_data = pd.read_csv('./data/ek60.csv', encoding='utf-8')
+# eb_data = pd.read_csv('./data/ek60.csv', encoding='utf-8')
+eb_data = pd.read_csv('./data/sentiment_human_final.csv', encoding='utf-8')
 model2 = SentenceTransformer('sentence-transformers/xlm-r-100langs-bert-base-nli-stsb-mean-tokens')
 model = KoBERTforSequenceClassfication()
 ctx = "cuda" if torch.cuda.is_available() else "cpu"
