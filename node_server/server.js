@@ -75,7 +75,6 @@ app.post('/upload', upload.single('image'), (req, res) => {
 
 // //플라스크 로컬 통신
 // app.post('/flask', (req, res) => {
-//   console.log("내 이름은 이재문 천재죠")
 //   axios({
 //     method: "POST",
 //     url: "http://192.168.0.18:5000/getSentiment",
@@ -293,6 +292,7 @@ app.post('/overlap', function(req, res) {
 
 // 플라스크 로컬 통신
 app.post('/flask', (req, res) => {
+  console.log("내 이름은 이재문 천재죠.");
   let text = req.query.text;
   axios({
     method: "POST",
@@ -610,3 +610,55 @@ app.post('/ratio', (req, res) => {
     }
   });
 });
+
+//대표 감정 Pie차트
+app.post('/PieTop', (req, res) => {
+  let id = req.query.id;
+
+  const sql = "SELECT top_emotion, COUNT(top_emotion) as count FROM diary WHERE id = '?' GROUP BY top_emotion ORDER BY count DESC LIMIT 5";
+
+  db.query(sql, id, (err, result) => {
+    if(err){
+      console.log("파이차트 에러: ", err)
+    }else {
+      console.log("파이차트 결과(대표 Top5): ", result);
+      res.send(result);
+    }
+  });
+});
+
+//한해 감정 Line차트
+app.post('/LineYear', (req, res) => {
+  let id = req.query.id;
+  let year = req.query.year;
+
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND year = ?) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5;";
+  values[id, year, id, year, id, year]
+  db.query(sql, values, (err, result) => {
+    if(err){
+      console.log("파이차트 에러: ", err)
+    }else {
+      console.log("라인차트 결과(전체 Top5): ", result);
+      res.send(result);
+    }
+  });
+});
+
+
+//한달 감정 Ring차트
+app.post('/RingMonth', (req, res) => {
+  let id = req.query.id;
+  let month = req.query.month;
+
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND month = ?) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5;";
+  values[id, month, id, month, id, month]
+  db.query(sql, values, (err, result) => {
+    if(err){
+      console.log("파이차트 에러: ", err)
+    }else {
+      console.log("라인차트 결과(전체 Top5): ", result);
+      res.send(result);
+    }
+  });
+});
+
