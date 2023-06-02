@@ -75,6 +75,7 @@ app.post('/upload', upload.single('image'), (req, res) => {
 
 // //플라스크 로컬 통신
 // app.post('/flask', (req, res) => {
+//   console.log("내 이름은 이재문 천재죠")
 //   axios({
 //     method: "POST",
 //     url: "http://192.168.0.18:5000/getSentiment",
@@ -612,11 +613,12 @@ app.post('/ratio', (req, res) => {
 });
 
 //대표 감정 Pie차트
-app.post('/PieTop', (req, res) => {
+app.post('/pieTop', (req, res) => {
   let id = req.query.id;
 
-  const sql = "SELECT top_emotion, COUNT(top_emotion) as count FROM diary WHERE id = '?' GROUP BY top_emotion ORDER BY count DESC LIMIT 5";
+  const sql = "SELECT top_emotion, COUNT(top_emotion) as count FROM diary WHERE id = ? GROUP BY top_emotion ORDER BY count DESC LIMIT 5";
 
+  console.log("id: ",id)
   db.query(sql, id, (err, result) => {
     if(err){
       console.log("파이차트 에러: ", err)
@@ -628,15 +630,18 @@ app.post('/PieTop', (req, res) => {
 });
 
 //한해 감정 Line차트
-app.post('/LineYear', (req, res) => {
+app.post('/lineYear', (req, res) => {
   let id = req.query.id;
   let year = req.query.year;
 
-  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND year = ?) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5;";
-  values[id, year, id, year, id, year]
+  console.log("line_id: ", id);
+  console.log("line_year: ", year);
+
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? AND top_emotion IS NOT NULL UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? AND second_emotion IS NOT NULL UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? AND third_emotion IS NOT NULL) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5";
+  let values = [id, year, id, year, id, year]
   db.query(sql, values, (err, result) => {
     if(err){
-      console.log("파이차트 에러: ", err)
+      console.log("라인차트 에러: ", err)
     }else {
       console.log("라인차트 결과(전체 Top5): ", result);
       res.send(result);
@@ -646,19 +651,37 @@ app.post('/LineYear', (req, res) => {
 
 
 //한달 감정 Ring차트
-app.post('/RingMonth', (req, res) => {
+app.post('/ringMonth', (req, res) => {
   let id = req.query.id;
   let month = req.query.month;
 
-  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND month = ?) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5;";
-  values[id, month, id, month, id, month]
+  console.log("ring_id: ", id);
+  console.log("ring_month: ", month);
+
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND top_emotion IS NOT NULL UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND second_emotion IS NOT NULL UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND third_emotion IS NOT NULL) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5";
+  let values = [id, month, id, month, id, month]
   db.query(sql, values, (err, result) => {
     if(err){
-      console.log("파이차트 에러: ", err)
+      console.log("링차트 에러: ", err)
     }else {
-      console.log("라인차트 결과(전체 Top5): ", result);
+      console.log("링차트 결과(전체 Top5): ", result);
       res.send(result);
     }
   });
 });
 
+
+//메인에 5개 일기 랜덤
+app.post('/mainDiary', (req, res) => {
+  let id = req.query.id;
+
+  const sql = "SELECT * FROM diary Where id = ? order by RAND() Limit 5";
+  db.query(sql, id, (err, result) => {
+    if(err){
+      console.log("메인 일기 에러: ", err)
+    }else {
+      console.log("메인 결과 키값만: ", result.diarykey);
+      res.send(result);
+    }
+  });
+});
