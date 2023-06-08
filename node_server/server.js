@@ -13,22 +13,23 @@ const crypto = require('crypto'); // Node.js 내장 모듈이며, 여러 해시 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 const fs = require('fs');
+const OpenAI = require('openai');
 app.use(cors());
 
 
 // aws 연동
 const s3 = new aws.S3({
-  region: '---',
-  accessKeyId: "---",
-  secretAccessKey: "---"
+  region: 'ap-northeast-2',
+  accessKeyId: "--",
+  secretAccessKey: "--"
 });
 
 // sql 연동
 const db = mysql.createConnection({
-  user: '---',
-  host: '---',
-  password: '---',
-  database: '---'
+  user: '--',
+  host: '--',
+  password: '--',
+  database: '--'
 });
 
 // db가잘 연동 되었는지 확인
@@ -73,23 +74,6 @@ app.post('/upload', upload.single('image'), (req, res) => {
 })
 
 
-// //플라스크 로컬 통신
-// app.post('/flask', (req, res) => {
-//   console.log("내 이름은 이재문 천재죠")
-//   axios({
-//     method: "POST",
-//     url: "http://192.168.0.18:5000/getSentiment",
-//     data: {
-//       input:"나 너무 살쪘어ㅜㅜ"
-//     },
-//   })
-//   .then((result) => {
-//     console.log(result);
-//     res.send(result);
-//   })
-// })
-
-
 
 //이메일 인증번호
 app.post('/checkNum', (req, res) => {
@@ -116,10 +100,10 @@ app.post('/checkNum', (req, res) => {
           "Content-Type": "application/json",
         },
         data: {
-          service_id: "---",
-          template_id: "---",
-          user_id: "---",
-          accessToken: "---",
+          service_id: "--",
+          template_id: "--",
+          user_id: "--",
+          accessToken: "--",
           template_params: {
             email: email,
             checkNum: number,
@@ -293,20 +277,54 @@ app.post('/overlap', function(req, res) {
 
 // 플라스크 로컬 통신
 app.post('/flask', (req, res) => {
-  console.log("내 이름은 이재문 천재죠.");
-  let text = req.query.text;
+  let text2 = req.query.text;
+  let text3 = "너의 이름은 이제부터 소담이야. 귀여운 말투로 말을 해줘. " + text2
+  console.log("대화: ", text3)
   axios({
     method: "POST",
-    url: "http://192.168.0.18:5000/getSentiment",
+    url: "--/getSentiment",   // loacal 로 진행함.
     data: {
-      input: text
+      input: text2
     },
   })
-  .then((result) => {
-    console.log(result.data.sentence);
-    console.log(result.data.emotion);
-    console.log(result.data.index);
-    res.send(result.data);
+  .then(async(result) => {
+    // console.log(result.data.sentence);
+    // console.log(result.data.emotion);
+    // console.log(result.data.index);
+    console.log(result.data.max_cos)
+    if(result.data.max_cos < 1) {
+      const { Configuration, OpenAIApi } = require("openai");
+
+        const configuration = new Configuration({
+          apiKey: "--",
+        });
+        const openai = new OpenAIApi(configuration);
+
+        const completion = await openai.createCompletion({
+          model: "text-davinci-003",
+          prompt: text3,
+          max_tokens: 128,
+          temperature: 0.7,
+        });
+
+        const result2 = completion.data.choices[0].text;
+        console.log("gpt: ",result2);
+
+        const tokenCount = completion.data.usage.total_tokens;
+        console.log("Total tokens used:", tokenCount);
+        const response = {
+          result: result2,
+          tokenCount: tokenCount,
+        };
+        let splitText = response.result.split(/[.,!~?]/);
+        let splitText3 = splitText.slice(1, splitText.length - 2).join(".").trim().replace(/\n/g, '') + ".";
+        console.log("결과확인: ",splitText[1]);
+        let gptText = {"sentence": splitText3, "emotion": result.data.emotion};
+        console.log("최종: ",gptText);
+        res.send(JSON.stringify(gptText));
+    }else {
+      res.send(result.data);
+    }
   })
   .catch((error) => {
     console.error(error);
@@ -315,8 +333,9 @@ app.post('/flask', (req, res) => {
 });
 
 
+
 //글 작성
-app.post('/write', async function(req, res) {
+app.post('/write', async function(req, res2) {
   console.log("글 작성 하러 옴");
   let id = req.query.id;
   let title = req.query.title;
@@ -325,7 +344,7 @@ app.post('/write', async function(req, res) {
   let month = req.query.month;
   let day = req.query.day;
   let img = req.query.img;
-  let cb_sentence = req.query.cb_sentence;
+  let cb_sentence = ""; //최종 gpt결과값 저장
   let cb_emotion = req.query.cb_emotion;
   
 
@@ -371,16 +390,59 @@ console.log('top_emotion:', top_emotion);
 console.log('second_emotion:', second_emotion);
 console.log('third_emotion:', third_emotion);
 
+
+const { Configuration, OpenAIApi } = require("openai");
+console.log("message: ", content);
+let message = "한국어로 공감 또는 위로를 해줘. " + content
+
+const configuration = new Configuration({
+  apiKey: "--",
+});
+const openai = new OpenAIApi(configuration);
+
+const completion = await openai.createCompletion({
+  model: "text-davinci-003",
+  prompt: message,
+  max_tokens: 1024,
+  temperature: 0.7,
+});
+
+const result = completion.data.choices[0].text;
+console.log("gpt의 결과: ",result);
+
+const tokenCount = completion.data.usage.total_tokens;
+console.log("Total tokens used:", tokenCount);
+const response = {
+  result: result,
+  tokenCount: tokenCount,
+};
+
+let gptText = response.result.split(".");
+let gptText2 = gptText.slice(0, gptText.length).join(".").trim();
+
+cb_sentence = gptText2
+
+console.log("마지막 gpt: ", cb_sentence);
+
+
   setTimeout(() => {
+    console.log("sql실행")
     let values = [id, title, content, year, month, day, img, cb_sentence, cb_emotion, top_emotion, second_emotion, third_emotion, top_number, second_number, third_number];
     const sql = "INSERT INTO diary(id, title, content, year, month, day, img, cb_sentence, cb_emotion, top_emotion, second_emotion, third_emotion, top_number, second_number, third_number) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
+    const sql2 = "Select MAX(diarykey) as diarykey From diary";
 
     db.query(sql, values, (err, result) => {
       if (err) {
         console.log(err);
       } else {
-        res.send(result)
+        db.query(sql2, (err, res) => {
+          if(err){
+            console.log(err);
+          }else {
+            console.log("다이어리키 가져오나?",res);
+            res2.send(res);
+          }
+        })
       }
     });
   }, 300)
@@ -422,20 +484,61 @@ app.post('/diaryModify', async function(req, res) {
   let month = req.query.month;
   let day = req.query.day;
   let img = req.query.img;
+  let cb_sentence = ""; //최종 gpt결과값 저장
+  let cb_emotion = req.query.cb_emotion;
 
 
+  const { Configuration, OpenAIApi } = require("openai");
+console.log("message: ", content);
+let message = "한국어로 공감 또는 위로를 해줘. " + content
 
+const configuration = new Configuration({
+  apiKey: "--",
+});
+const openai = new OpenAIApi(configuration);
 
-  let values = [title, content, year, month, day, img, diarykey];
+const completion = await openai.createCompletion({
+  model: "text-davinci-003",
+  prompt: message,
+  max_tokens: 1024,
+  temperature: 0.7,
+});
+
+const result = completion.data.choices[0].text;
+console.log("gpt의 결과: ",result);
+
+const tokenCount = completion.data.usage.total_tokens;
+console.log("Total tokens used:", tokenCount);
+const response = {
+  result: result,
+  tokenCount: tokenCount,
+};
+
+let gptText = response.result.split(".");
+let gptText2 = gptText.slice(0, gptText.length).join(".").trim();
+
+cb_sentence = gptText2
+
+console.log("마지막 gpt: ", cb_sentence);
+
+  let values = [title, content, year, month, day, img, cb_sentence,  diarykey];
+  let valuse2 = [cb_emotion, diarykey];
   console.log(values);
-  const sql = "Update diary Set title = ?, content = ?, year = ?, month = ? , day = ?, img = ? Where diarykey = ?"
-
+  const sql = "Update diary Set title = ?, content = ?, year = ?, month = ? , day = ?, img = ?, cb_sentence =? Where diarykey = ?"
+  const sql2 = "UPDATE diary SET cb_emotion = CONCAT(?, cb_emotion) WHERE diarykey = ?"
   db.query(sql, values,
     (err, result) => {
         if (err)
             console.log(err);
-        else
-            res.send(result);
+        else{
+          db.query(sql2, valuse2, (err, result) => {
+            if(err) {
+              console.log(err)
+            }else {
+              res.send("3");
+            }
+          })
+        }
     });
 })
 
@@ -478,13 +581,16 @@ app.post('/diaryDelete', (req,res) => {
 app.post('/diaryInfo', (req, res) => {
   let diarykey = req.query.diarykey;
 
+  console.log("방금 받았어요: " , diarykey);
+
   let values = [diarykey];
-  let sql = "Select title, content, year, month, day, img From diary Where diarykey =?"
+  let sql = "Select * From diary Where diarykey =?"
   db.query(sql, values, (err, result) => {
     if(err) {
       console.log(err);
     }
   else {
+    console.log(result);
       res.send(result);
     }
 })
@@ -497,7 +603,7 @@ app.post('/album', (req, res) => {
   let id = req.query.id;
   let values = [id];
 
-  let sql = "select diarykey, img From diary Where id =?"
+  let sql = "select diarykey, img, title, year, month, day From diary Where id =?"
   db.query(sql, values, (err, result) => {
     if(err) {
       console.log(err);
@@ -507,6 +613,21 @@ app.post('/album', (req, res) => {
     }
   })
 
+});
+
+//앨범 개수
+app.post('/albumCnt', (req, res) => {
+  let id = req.query.id;
+
+  let sql = "select count(img) as cnt from diary where id = ? AND img is not null"
+  db.query(sql, id, (err, result) => {
+    if(err){
+      console.log(err);
+    }else {
+      console.log(result);
+      res.send(result);
+    }
+  })
 });
 
 
@@ -658,7 +779,7 @@ app.post('/ringMonth', (req, res) => {
   console.log("ring_id: ", id);
   console.log("ring_month: ", month);
 
-  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND top_emotion IS NOT NULL UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND second_emotion IS NOT NULL UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND third_emotion IS NOT NULL) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 5";
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND top_emotion IS NOT NULL UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND second_emotion IS NOT NULL UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND month = ? AND third_emotion IS NOT NULL) AS combined_table GROUP BY emotion_value ORDER BY count DESC LIMIT 4";
   let values = [id, month, id, month, id, month]
   db.query(sql, values, (err, result) => {
     if(err){
@@ -671,16 +792,80 @@ app.post('/ringMonth', (req, res) => {
 });
 
 
-//메인에 5개 일기 랜덤
-app.post('/mainDiary', (req, res) => {
+// // 사용자 일기내용 랜덤 5개
+app.post('/randomDiary', (req, res) => {
   let id = req.query.id;
 
-  const sql = "SELECT * FROM diary Where id = ? order by RAND() Limit 5";
-  db.query(sql, id, (err, result) => {
-    if(err){
-      console.log("메인 일기 에러: ", err)
-    }else {
-      console.log("메인 결과 키값만: ", result.diarykey);
+  let values = [id];
+  
+  let sql = "Select * From diary Where id = ? ORDER BY RAND() LIMIT 5;"
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      console.log(err);
+    }
+    else {
+      res.send(result);
+    }
+  })
+});
+
+// 해당 일일다이어리 기준 week 데이터
+app.post('/detailWeek', (req, res) => {
+  let id = req.query.id;
+  let year = req.query.year;
+  let month = req.query.month;
+  let day = req.query.day;
+
+  const date = year + "-" + month + "-" + day
+  console.log("date: ", date)
+
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM ( " +
+    "SELECT top_emotion AS emotion_value " +
+    "FROM diary " +
+    "WHERE id = ? AND DATE(CONCAT(year, '-', month, '-', day)) BETWEEN DATE_SUB(?, INTERVAL WEEKDAY(?) DAY) AND DATE_ADD(?, INTERVAL 6 - WEEKDAY(?) DAY) " +
+      "AND top_emotion IS NOT NULL " +
+    "UNION ALL " +
+    "SELECT second_emotion AS emotion_value " +
+    "FROM diary " +
+    "WHERE id = ? AND DATE(CONCAT(year, '-', month, '-', day)) BETWEEN DATE_SUB(?, INTERVAL WEEKDAY(?) DAY) AND DATE_ADD(?, INTERVAL 6 - WEEKDAY(?) DAY) " +
+      "AND second_emotion IS NOT NULL " +
+    "UNION ALL " +
+    "SELECT third_emotion AS emotion " +
+    "FROM diary " +
+    "WHERE id = ? AND DATE(CONCAT(year, '-', month, '-', day)) BETWEEN DATE_SUB(?, INTERVAL WEEKDAY(?) DAY) AND DATE_ADD(?, INTERVAL 6 - WEEKDAY(?) DAY) " +
+      "AND third_emotion IS NOT NULL " +
+  ") AS combined_table " +
+  "GROUP BY emotion_value";
+
+  let values = [id, date, date, date, date, id, date, date, date, date, id, date, date, date, date]
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      console.log("week데이터 에러: ", err)
+    } else {
+      console.log("week데이터 결과(전체 Top5): ", result);
+      res.send(result);
+    }
+  });
+});
+
+
+// 해당 일일다이어리 기준 month 데이터
+app.post('/detailMonth', (req, res) => {
+  let id = req.query.id;
+  let year = req.query.year;
+  let month = req.query.month;
+
+  console.log("detailMonth_id: " + id)
+  console.log("detailMonth_year: " + year)
+  console.log("detailMonth_month: " + month)
+
+  const sql = "SELECT emotion_value, COUNT(*) AS count FROM (SELECT top_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? AND month = ? AND top_emotion IS NOT NULL UNION ALL SELECT second_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? AND month = ? AND second_emotion IS NOT NULL UNION ALL SELECT third_emotion AS emotion_value FROM diary WHERE id = ? AND year = ? AND month = ? AND third_emotion IS NOT NULL) AS combined_table GROUP BY emotion_value ORDER BY count DESC";
+  let values = [id, year, month, id, year, month, id, year, month]
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      console.log("month데이터 에러: ", err)
+    } else {
+      console.log("month데이터 결과(전체): ", result);
       res.send(result);
     }
   });
